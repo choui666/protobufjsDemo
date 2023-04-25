@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="./protobufjs/dist/protobuf.js"></script>
+  </head>
+
+  <body>
+    <script>
+      function strToArrayBuffer(str) {
+        var array = new Uint8Array(str.length);
+        for (var i = 0; i < str.length; i++) {
+          array[i] = str.charCodeAt(i);
+        }
+        return array.buffer;
+      }
+      protobuf.load("../proto/person.proto", function (err, root) {
+        if (err) throw err;
+
+        // Obtain a message type
+        var seetongPerson = root.lookupType("seetong.Person");
+
+        // Exemplary payload
+        var payload = {
+          name: "choui",
+          id: 666,
+          email: "choui@seetong.com",
+          phone: [{ number: "18710093248", type: 1 }],
+        };
+
+        // Verify the payload if necessary (i.e. when possibly incomplete or invalid)
+        var errMsg = seetongPerson.verify(payload);
+        if (errMsg) throw Error(errMsg);
+
+        // Create a new message
+        var message = seetongPerson.create(payload); // or use .fromObject if conversion is necessary
+
+        // Encode a message to an Uint8Array (browser) or Buffer (node)
+        var messageBuffer = seetongPerson.encode(message).finish();
+        // ... do something with buffer
+
+
+
+       var jsonBuffer =  strToArrayBuffer(JSON.stringify(payload));
+
+       console.warn("protobuf size:" , messageBuffer.byteLength,"json size:",jsonBuffer.byteLength);
+
+        // Decode an Uint8Array (browser) or Buffer (node) to a message
+        var message = seetongPerson.decode(messageBuffer);
+        // ... do something with message
+
+        // If the application uses length-delimited buffers, there is also encodeDelimited and decodeDelimited.
+
+        axios({
+          url: "http://localhost:3000/pb",
+          method: "post",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "Content-Type": "application/octet-stream",
+          },
+          responseType: "arraybuffer",
+          data: messageBuffer.buffer.slice(
+            messageBuffer.byteOffset,
+            messageBuffer.byteOffset + messageBuffer.byteLength
+          ),
+        }).then((res) => {
+          console.log("pb", res);
+        });
+
+        fetch("http://localhost:3000/json", {
+          method: "post",
+          body: JSON.stringify(payload),
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+          .then((res) => {
+            return res.json();
+          })
+          .then((res) => {
+            console.log(res);
+          });
+      });
+    </script>
+  </body>
+</html>
